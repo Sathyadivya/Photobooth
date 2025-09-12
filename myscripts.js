@@ -1,91 +1,137 @@
-html {
-  scroll-behavior: smooth;
-}
-h1 {
-  text-align: center;
-  font-family: "Lucida Handwriting", cursive, sans-serif;
-  font-size: 2rem;
-  margin-bottom: 20px;
-  word-spacing: 10px;
-  color: #92a1c3;
-  background: white;
-  padding: 10px 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+const video = document.getElementById("video");
+const startbtn = document.getElementById("startbtn");
+const preview = document.getElementById("preview");
+const countdownEl = document.getElementById("countdown");
+const downloadbtn = document.getElementById("downloadbtn");
+
+let capturedImages = [];
+
+// Start webcam
+navigator.mediaDevices
+  .getUserMedia({ video: true })
+  .then((stream) => {
+    video.srcObject = stream;
+    video.play();
+  })
+  .catch((err) => {
+    console.error("Camera access denied:", err);
+  });
+
+// Countdown function
+function showCountdown(num) {
+  return new Promise((resolve) => {
+    countdownEl.textContent = num;
+    setTimeout(() => {
+      countdownEl.textContent = "";
+      resolve();
+    }, 1000);
+  });
 }
 
-body {
-  background: linear-gradient(135deg, #ffd3dd, #ffe9f0);
-  margin: 0;
-  padding: 40px 20px;
-  font-family: sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+// Take 4 photos
+startbtn.addEventListener("click", async () => {
+  if (!video.videoWidth || !video.videoHeight) {
+    alert("Video not ready yet. Please wait a moment.");
+    return;
+  }
 
-.video-wrapper {
-  position: relative;
-}
+  preview.innerHTML = "";
+  capturedImages = [];
+  downloadbtn.style.display = "none";
 
-video {
-  width: 300px;
-  height: 300px;
-  object-fit: cover;
-  border: 4px solid #92a1c3;
-  border-radius: 12px;
-  margin-top: 20px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
+  for (let i = 0; i < 4; i++) {
+    for (let j = 3; j > 0; j--) {
+      await showCountdown(j);
+    }
 
-#countdown {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 5rem;
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 0 10px black;
-  pointer-events: none;
-}
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-button {
-  margin-top: 20px;
-  padding: 12px 35px;
-  font-size: 16px;
-  border: none;
-  border-radius: 9px;
-  background: #92a1c3;
-  color: white;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
-}
+    const img = document.createElement("img");
+    img.src = canvas.toDataURL("image/png");
+    img.style.width = "120px"; // small preview size
+    img.style.marginBottom = "5px"; // spacing
+    preview.appendChild(img);
 
-button:hover {
-  background: #7a8eb8;
-  transform: scale(1.05);
-}
+    capturedImages.push(canvas);
+  }
 
-#preview {
-  margin-top: 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-  background: white;
-  padding: 15px;
-  border-radius: 12px;
-  border: 3px solid #92a1c3;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
+  downloadbtn.style.display = "inline-block";
 
-#preview img {
-  width: 160px;
-  background: white;
-  padding: 12px 12px 25px 12px;
-  border: 2px solid #eee;
-  border-radius: 6px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
-  object-fit: cover;
-}
+  // Add a short delay before scrolling to ensure layout has updated
+  setTimeout(() => {
+    document.getElementById("starter").scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, 100); // 100ms delay
+});
+
+// Download as classic vertical strip
+downloadbtn.addEventListener("click", () => {
+  if (capturedImages.length === 0) return;
+
+  const MAX_CANVAS_HEIGHT = 2500;
+
+  const baseStripWidth = 400;
+  const basePhotoHeight = 300;
+  const padding = 20;
+  const spacing = 20;
+
+  const numPhotos = capturedImages.length;
+
+  const totalHeightUnscaled =
+    numPhotos * (basePhotoHeight + padding * 2 + spacing) - spacing;
+
+  const scaleFactor =
+    totalHeightUnscaled > MAX_CANVAS_HEIGHT
+      ? MAX_CANVAS_HEIGHT / totalHeightUnscaled
+      : 1;
+
+  const stripWidth = Math.round(baseStripWidth * scaleFactor);
+  const photoHeight = basePhotoHeight * scaleFactor;
+  const scaledPadding = padding * scaleFactor;
+  const scaledSpacing = spacing * scaleFactor;
+
+  const stripHeight =
+    numPhotos * (photoHeight + scaledPadding * 2 + scaledSpacing) -
+    scaledSpacing;
+
+  const stripCanvas = document.createElement("canvas");
+  stripCanvas.width = stripWidth;
+  stripCanvas.height = stripHeight;
+
+  const ctx = stripCanvas.getContext("2d");
+
+  let yOffset = 0;
+
+  capturedImages.forEach((canvas) => {
+    // White background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, yOffset, stripWidth, photoHeight + scaledPadding * 2);
+
+    // Draw image keeping aspect ratio, scaled to fit width minus padding
+    const drawWidth = stripWidth - scaledPadding * 2;
+    const scale = drawWidth / canvas.width;
+    const drawHeight = canvas.height * scale;
+
+    ctx.drawImage(
+      canvas,
+      scaledPadding,
+      yOffset + scaledPadding,
+      drawWidth,
+      drawHeight
+    );
+
+    yOffset += drawHeight + scaledPadding * 2 + scaledSpacing;
+  });
+
+  // Trigger download
+  const a = document.createElement("a");
+  a.href = stripCanvas.toDataURL("image/png");
+  a.download = "photobooth_strip.png";
+  a.click();
+});
