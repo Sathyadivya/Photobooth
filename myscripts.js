@@ -24,7 +24,7 @@ function showCountdown(num) {
     setTimeout(() => {
       countdownEl.textContent = "";
       resolve();
-    }, 1000);
+    }, 5000);
   });
 }
 
